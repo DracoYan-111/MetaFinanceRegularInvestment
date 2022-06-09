@@ -42,8 +42,9 @@ const config: HardhatUserConfig = {
       url: env.BSCTEST_URL,
       accounts: [env.PRIVATE_KEY]
     },
-    ganache: {
-      url: env.GANACHE_URL
+    ganacheLocal: {
+      url: env.GANACHE_URL,
+      accounts: [env.PRIVATE_KEY]
     },
     localhost: {
       url: "http://127.0.0.1:8545"
