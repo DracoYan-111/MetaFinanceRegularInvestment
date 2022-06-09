@@ -1,0 +1,10 @@
+node_modules
+coverage
+typechain
+.idea
+artifacts
+cache
+env.example.json
+coverage.json
+.env
+
