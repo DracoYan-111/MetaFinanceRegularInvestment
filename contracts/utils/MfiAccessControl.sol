@@ -10,6 +10,8 @@ abstract contract MfiAccessControl is AccessControl {
 
     uint256 public constant MAX = ~uint256(0);
 
+    uint256[6] public timeSpan = [1 weeks, 2 weeks, 5 weeks, 10 weeks, 26 weeks, 52 weeks];
+
     // money administrator
     bytes32 public constant MONEY_ADMINISTRATOR = bytes32(keccak256(abi.encodePacked("MFI_Money_Administrator")));
 

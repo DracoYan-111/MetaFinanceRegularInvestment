@@ -1,47 +1,49 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "./interfaces/IMasterChefV2.sol";
-import "./interfaces/IBoostContract.sol";
-import "./interfaces/IVCake.sol";
+import "./Ownable.sol";
+import "./SafeERC20.sol";
+import "./Pausable.sol";
+import "./IMasterChefV2.sol";
+import "./IBoostContract.sol";
+import "./IVCake.sol";
 
 contract CakePool is Ownable, Pausable {
     using SafeERC20 for IERC20;
 
     struct UserInfo {
-        uint256 shares; // number of shares for a user.
-        uint256 lastDepositedTime; // keep track of deposited time for potential penalty.
-        uint256 cakeAtLastUserAction; // keep track of cake deposited at the last user action.
-        uint256 lastUserActionTime; // keep track of the last user action time.
-        uint256 lockStartTime; // lock start time.
-        uint256 lockEndTime; // lock end time.
-        uint256 userBoostedShare; // boost share, in order to give the user higher reward. The user only enjoys the reward, so the principal needs to be recorded as a debt.
-        bool locked; //lock status.
-        uint256 lockedAmount; // amount deposited during lock period.
+        uint256 shares; // number of shares for a user. 一个用户的共享数量
+        uint256 lastDepositedTime; // keep track of deposited time for potential penalty.跟踪潜在罚款的存放时间
+        uint256 cakeAtLastUserAction; // keep track of cake deposited at the last user action. 跟踪上次用户操作时存放的蛋糕
+        uint256 lastUserActionTime; // keep track of the last user action time.跟踪上次用户操作时间
+        uint256 lockStartTime; // lock start time.锁定开始时间
+        uint256 lockEndTime; // lock end time. 锁定结束时间
+        uint256 userBoostedShare; 
+        // boost share, in order to give the user higher reward. The user only enjoys the reward, so the principal needs to be recorded as a debt.
+        //提升分享，以给予用户更高的奖励。用户只享受奖励，所以本金需要记为债务
+        bool locked; //lock status. 锁定状态
+        uint256 lockedAmount; // amount deposited during lock period.//锁定期间存入的金额
     }
 
     IERC20 public immutable token; // cake token.
 
     IMasterChefV2 public immutable masterchefV2;
 
-    address public boostContract; // boost contract used in Masterchef.
+    address public boostContract; // boost contract used in Masterchef. Masterchef 中使用的 boost 合约
     address public VCake;
 
     mapping(address => UserInfo) public userInfo;
-    mapping(address => bool) public freePerformanceFeeUsers; // free performance fee users.
-    mapping(address => bool) public freeWithdrawFeeUsers; // free withdraw fee users.
-    mapping(address => bool) public freeOverdueFeeUsers; // free overdue fee users.
+    mapping(address => bool) public freePerformanceFeeUsers; // free performance fee users. 免演出费用户
+    mapping(address => bool) public freeWithdrawFeeUsers; // free withdraw fee users. 免提现费用户
+    mapping(address => bool) public freeOverdueFeeUsers; // free overdue fee users.免逾期费用户
 
     uint256 public totalShares;
     address public admin;
     address public treasury;
     address public operator;
     uint256 public cakePoolPID;
-    uint256 public totalBoostDebt; // total boost debt.
-    uint256 public totalLockedAmount; // total lock amount.
+    uint256 public totalBoostDebt; // total boost debt.增加债务总额
+    uint256 public totalLockedAmount; // total lock amount.总锁仓量
 
     uint256 public constant MAX_PERFORMANCE_FEE = 2000; // 20%
     uint256 public constant MAX_WITHDRAW_FEE = 500; // 5%
@@ -50,14 +52,14 @@ contract CakePool is Ownable, Pausable {
     uint256 public constant MIN_LOCK_DURATION = 1 weeks; // 1 week
     uint256 public constant MAX_LOCK_DURATION_LIMIT = 1000 days; // 1000 days
     uint256 public constant BOOST_WEIGHT_LIMIT = 5000 * 1e10; // 5000%
-    uint256 public constant PRECISION_FACTOR = 1e12; // precision factor.
-    uint256 public constant PRECISION_FACTOR_SHARE = 1e28; // precision factor for share.
+    uint256 public constant PRECISION_FACTOR = 1e12; // precision factor.精度系数
+    uint256 public constant PRECISION_FACTOR_SHARE = 1e28; // precision factor for share.份额的精确系数
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0.00001 ether;
     uint256 public constant MIN_WITHDRAW_AMOUNT = 0.00001 ether;
     uint256 public UNLOCK_FREE_DURATION = 1 weeks; // 1 week
     uint256 public MAX_LOCK_DURATION = 365 days; // 365 days
-    uint256 public DURATION_FACTOR = 365 days; // 365 days, in order to calculate user additional boost.
-    uint256 public DURATION_FACTOR_OVERDUE = 180 days; // 180 days, in order to calculate overdue fee.
+    uint256 public DURATION_FACTOR = 365 days; // 365 days, in order to calculate user additional boost.365天，以计算用户额外提升
+    uint256 public DURATION_FACTOR_OVERDUE = 180 days; // 180 days, in order to calculate overdue fee. 180天，用于计算逾期费用
     uint256 public BOOST_WEIGHT = 100 * 1e10; // 100%
 
     uint256 public performanceFee = 200; // 2%
@@ -104,9 +106,9 @@ contract CakePool is Ownable, Pausable {
      * @param _token: Cake token contract
      * @param _masterchefV2: MasterChefV2 contract
      * @param _admin: address of the admin
-     * @param _treasury: address of the treasury (collects fees)
-     * @param _operator: address of operator
-     * @param _pid: cake pool ID in MasterChefV2
+     * @param _treasury: address of the treasury (collects fees) 国库地址（收取费用）
+     * @param _operator: address of operator 运营商地址
+     * @param _pid: cake pool ID in MasterChefV2 MasterChefV2 中的蛋糕池 ID
      */
     constructor(
         IERC20 _token,
@@ -125,9 +127,9 @@ contract CakePool is Ownable, Pausable {
     }
 
     /**
-     * @notice Deposits a dummy token to `MASTER_CHEF` MCV2.
-     * It will transfer all the `dummyToken` in the tx sender address.
-     * @param dummyToken The address of the token to be deposited into MCV2.
+     * @notice Deposits a dummy token to `MASTER_CHEF` MCV2.将虚拟代币存入“MASTER_CHEF”MCV2。
+     * It will transfer all the `dummyToken` in the tx sender address.它将传输 tx 发送者地址中的所有 `dummy Token`
+     * @param dummyToken The address of the token to be deposited into MCV2. dummyToken 要存入 MCV2 的代币的地址。
      */
     function init(IERC20 dummyToken) external onlyOwner {
         uint256 balance = dummyToken.balanceOf(msg.sender);
@@ -147,7 +149,7 @@ contract CakePool is Ownable, Pausable {
     }
 
     /**
-     * @notice Checks if the msg.sender is either the cake owner address or the operator address.
+     * @notice Checks if the msg.sender is either the cake owner address or the operator address.运营商地址
      */
     modifier onlyOperatorOrCakeOwner(address _user) {
         require(msg.sender == _user || msg.sender == operator, "Not operator or cake owner");
@@ -155,7 +157,7 @@ contract CakePool is Ownable, Pausable {
     }
 
     /**
-     * @notice Update user info in Boost Contract.
+     * @notice Update user info in Boost Contract.更新 Boost Contract 中的用户信息
      * @param _user: User address
      */
     function updateBoostContractInfo(address _user) internal {
@@ -173,7 +175,7 @@ contract CakePool is Ownable, Pausable {
     }
 
     /**
-     * @notice Update user share When need to unlock or charges a fee.
+     * @notice Update user share When need to unlock or charges a fee.更新用户分享 需要解锁或收费时
      * @param _user: User address
      */
     function updateUserShare(address _user) internal {
@@ -431,8 +433,7 @@ contract CakePool is Ownable, Pausable {
 
         if (_shares == 0 && _amount > 0) {
             uint256 pool = balanceOf();
-            currentShare = (_amount * totalShares) / pool;
-            // Calculate equivalent shares
+            currentShare = (_amount * totalShares) / pool; // Calculate equivalent shares
             if (currentShare > user.shares) {
                 currentShare = user.shares;
             }
@@ -796,9 +797,9 @@ contract CakePool is Ownable, Pausable {
             uint256 pool = balanceOf() + calculateTotalPendingCakeRewards();
             uint256 sharesPercent = (_shares * PRECISION_FACTOR) / user.shares;
             uint256 currentTotalAmount = (pool * (user.shares)) /
-            totalShares -
-            user.userBoostedShare -
-            calculatePerformanceFeeOrOverdueFee(_user);
+                totalShares -
+                user.userBoostedShare -
+                calculatePerformanceFeeOrOverdueFee(_user);
             uint256 currentAmount = (currentTotalAmount * sharesPercent) / PRECISION_FACTOR;
             uint256 feeRate = withdrawFee;
             if (_isContract(msg.sender)) {

@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
 
-import "../interfaces/IMFIRegularInvestmentInterfaces.sol";
+import "../interfaces/IMFIRegularInvestmentFactory.sol";
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -9,7 +9,14 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract MFIRegularInvestmentStorage {
+contract MFIRegularInvestmentFactoryStorage {
+
+    uint256 public contractVersion;
+
+    mapping(uint256 => uint256) public timeSpanPid;
+    mapping(uint256 => uint256)public lockSpan;
+    mapping(uint256 => uint256) public timeSpanDepositRatio;
+    mapping(uint256 => address[]) public allTradingContract;
 
     /// @notice main chain
     CakePool public constant cakePool = CakePool(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
