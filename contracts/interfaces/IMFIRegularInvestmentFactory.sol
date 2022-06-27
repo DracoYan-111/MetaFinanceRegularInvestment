@@ -35,7 +35,7 @@ interface IMetaFinanceTriggerPool {
 /**
 * @notice CakePool contract interfaces
 */
-interface CakePool {
+interface ICakePool {
     /**
      * @dev Deposit funds into the Cake Pool.
      * @param _amount: number of tokens to deposit (in CAKE)
@@ -86,13 +86,27 @@ interface CakePool {
      * @dev Calculates the total pending rewards that can be harvested
      * @return Returns total pending cake rewards
      */
-    function calculateTotalPendingCakeRewards()  external view returns (uint256);
+    function calculateTotalPendingCakeRewards() external view returns (uint256);
 
     /**
      * @dev Current pool available balance
      * @dev The contract puts 100% of the tokens to work.
      */
-    function available()  external view returns (uint256);
+    function available() external view returns (uint256);
 
+    /**
+     * @dev Calculates the total underlying tokens
+     * @dev It includes tokens held by the contract and the boost debt amount.
+     */
+    function balanceOf() external view returns (uint256);
 
+    /**
+     * @dev total proportion
+     */
+    function totalShares() external view returns (uint256);
+
+    /**
+     * @dev User Info
+     */
+    function userInfo(address _account) external view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, bool, uint256);
 }
