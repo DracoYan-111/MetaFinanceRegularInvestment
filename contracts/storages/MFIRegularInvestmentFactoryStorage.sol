@@ -20,7 +20,7 @@ contract MFIRegularInvestmentFactoryStorage {
     mapping(uint256 => address[]) public allTradingContract;
 
     /// @notice main chain
-    ICakePool public constant cakePool = ICakePool(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
+    ICakePool public constant cakePool = ICakePool(0xd9145CCE52D386f254917e481eB44e9943F39138);
     IMetaFinanceTriggerPool public constant metaFinanceTriggerPool = IMetaFinanceTriggerPool(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
     /// @notice test chain

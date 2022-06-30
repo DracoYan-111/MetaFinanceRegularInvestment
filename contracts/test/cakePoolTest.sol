@@ -31,7 +31,7 @@ contract CakePool {
      * @param _shares: Number of shares to withdraw
      */
     function withdraw(uint256 _shares) external {
-        userDate[msg.sender].userAmount -= _amount;
+        userDate[msg.sender].userAmount -= _shares;
     }
     /**
      * @dev Withdraw all funds for a user
