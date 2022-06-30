@@ -127,7 +127,7 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
     function initializeTradingContract(uint256[] calldata _index, tradingContract[] calldata _tradContractAddress) public {
         require(_index.length == _tradContractAddress.length, "MFIRI:E2");
         for (uint256 i = 0; i < _index.length; ++i) {
-            _tradContractAddress[i].initialize(lockSpan[_index[i]], cakePool);
+            _tradContractAddress[i].initialize(lockSpan[_index[i]], timeSpan[i], cakePool);
         }
     }
 
@@ -143,6 +143,7 @@ contract tradingContract {
     address public factory;
     uint256 public startTime;
     uint256 public lockTime;
+    uint256 public endTime;
 
     ICakePool public  cakePool;
 
@@ -153,12 +154,14 @@ contract tradingContract {
     // called once by the factory at time of deployment
     function initialize(
         uint256 _lockTime,
+        uint256 _pledgeTime,
         ICakePool _cakePool
     ) external {
         locking = true;
         lockTime = _lockTime;
         startTime = block.timestamp;
         cakePool = _cakePool;
+        endTime = startTime + lockTime + _pledgeTime;
     }
 
 
