@@ -13,6 +13,7 @@ contract MFIRegularInvestmentFactoryStorage {
     bool public turnOn;
 
     uint256 public contractVersion;
+    address[] public allContract;
 
     mapping(uint256 => uint256) public lockSpan;
     mapping(uint256 => uint256) public timeSpanPid;

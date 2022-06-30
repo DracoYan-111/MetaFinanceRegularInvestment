@@ -29,7 +29,7 @@ interface IMFIRegularInvestmentFactory {
     function getPoolPledgeRatio(uint256 _amount) external view returns (uint256[6] memory newAmount_);
 
 
-    function getLockSpanData(uint256 _index) external view returns (uint256 newData_);
+    function getLockSpanData() external view returns (uint256[6] memory newData_);
 
     function getLatestAddress() external view returns (address[6] memory latestAddress_);
 
@@ -42,4 +42,9 @@ interface ITradingContract {
     function initialize(uint256 _pid, uint256 _lockTime, uint256 _startTime) external;
 
     function userPledge(bool _whitelist, uint256 _amount) external;
+}
+
+interface IMCake {
+    function mint(address _userAddress, uint256 _amount) external;
+
 }

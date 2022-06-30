@@ -50,18 +50,21 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
     * @return latestAddress_ Latest address array
     */
     function getLatestAddress() external view returns (address[6] memory latestAddress_){
-
         for (uint256 i = 0; i < 6; ++i) {
-            //            uint256 newData_ = getLockSpanData(i);
-            //            uint256 latestAmount = allTradingContract[i].length;
-            //            latestAddress_[i] = latestAmount > 0 ? allTradingContract[i][latestAmount.sub(1)] : address(0);
             uint256 length = allTradingContract[i].length;
             for (uint256 j = 0; j < length; ++j) {
-                if(tradingContract(allTradingContract[i][j]).locking())
+                if (tradingContract(allTradingContract[i][j]).locking()) {
                     latestAddress_[i] = allTradingContract[i][j];
-                
-                //latestAddress_[i] = tradingContract(allTradingContract[i][j]).locking() ? allTradingContract[i][j] : address(0);
+                    break;
+                }
             }
+        }
+    }
+
+    function getAllContract() external view returns (address[] memory allContract_){
+        allContract_ = new address[](allContract.length);
+        for (uint256 i = 0; i < allContract.length; ++i) {
+            allContract_[i] = allContract[i];
         }
     }
     //============================================
@@ -117,15 +120,15 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
 
         allTradingContract[_index].push(tradingContract_);
         timeSpanPid[_index]++;
+        allContract.push(tradingContract_);
         //}
     }
 
     function initializeTradingContract(uint256[] calldata _index, tradingContract[] calldata _tradContractAddress) public {
-        require(_index.length == _tradContractAddress.length,"MFIRI:E2");
+        require(_index.length == _tradContractAddress.length, "MFIRI:E2");
         for (uint256 i = 0; i < _index.length; ++i) {
             _tradContractAddress[i].initialize(lockSpan[_index[i]], cakePool);
         }
-
     }
 
     function setLockTradingContract(tradingContract _tradContractAddress) public {
