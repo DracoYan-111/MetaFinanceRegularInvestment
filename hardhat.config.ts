@@ -45,13 +45,13 @@ const config: HardhatUserConfig = {
     ganacheLocal: {
       url: env.GANACHE_URL,
       accounts: [env.PRIVATE_KEY]
-    },
-    localhost: {
-      url: "http://127.0.0.1:8545"
-    },
-    hardhat: {
-      // See its defaults
     }
+    // localhost: {
+    //   url: "http://127.0.0.1:8545"
+    // },
+    // hardhat: {
+    //   // See its defaults
+    // }
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,

@@ -1,10 +1,9 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
 
-import "./storages/MFIRegularInvestmentFactoryStorage.sol"; //["10","15","25","20","13","17"]["1","1","5","2","13","4"]
 import "./utils/MfiAccessControl.sol";
-
 import "./interfaces/IMFIRegularInvestmentFactory.sol";
+import "./storages/MFIRegularInvestmentFactoryStorage.sol"; //["10","15","25","20","13","17"]["1","1","5","2","13","4"]
 
 contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgradeable, MFIRegularInvestmentFactoryStorage {
     using SafeMath for uint256;
@@ -61,10 +60,92 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
         }
     }
 
-    function getAllContract() external view returns (address[] memory allContract_){
+    function getAllContract() public view returns (address[] memory allContract_){
         allContract_ = new address[](allContract.length);
         for (uint256 i = 0; i < allContract.length; ++i) {
             allContract_[i] = allContract[i];
+        }
+    }
+
+
+    // function test(uint256[] memory _amountList) public view returns (uint256[] memory amountList_){
+
+    //     for (uint256 i = 0; i < _amountList.length; ++i) {
+    //         if (_amountList[i] == 0) {
+    //             amountList_[i] = _amountList[_amountList.length - 1];
+    //             _amountList.pop();
+    //         }
+    //     }
+    // }
+
+    function getCakePoolRewardByCakePoolAddressAndUserAddress(address _account) public view returns (uint256, uint256, uint256){
+        uint256 cakePoolBalanceOf = cakePool.balanceOf();
+        uint256 cakePoolTotalShares = cakePool.totalShares();
+        if (cakePoolTotalShares == 0) return (0, 0, 0);
+        (
+        uint256 shares,,
+        uint256 cakeAtLastUserAction,,,
+        uint256 lockEndTime,
+        uint256 userBoostedShare,
+        bool lock,
+        uint256 lockedAmount
+        ) = cakePool.userInfo(_account);
+        if (lock) {
+            return
+            (lockedAmount,
+            (cakePoolBalanceOf * shares / cakePoolTotalShares) - userBoostedShare - lockedAmount,
+            lockEndTime);
+        } else {
+            return
+            (cakeAtLastUserAction,
+            (cakePoolBalanceOf * shares / cakePoolTotalShares) - cakeAtLastUserAction,
+            lockEndTime);
+        }
+    }
+
+    // //查询所有合约是否已解锁
+    function allSelectUnlockAddress() public view returns (address[] memory addressTmp_){
+        address[] memory addressList = getAllContract();
+        uint256 lens = addressList.length;
+        address[] memory addressTmp = new address[](lens);
+        for (uint256 i = 0; i < lens; ++i) {
+            address add_tmp = addressList[i];
+            (,, uint256 _endTime) = getCakePoolRewardByCakePoolAddressAndUserAddress(add_tmp);
+            if (block.timestamp >= _endTime)
+                addressTmp[i] = add_tmp;
+        }
+        uint256 amount;
+        for (uint256 i = 0; i < lens; ++i) {
+            if (addressTmp[i] != address(0))
+                amount++;
+        }
+        addressTmp_ = new address[](amount);
+        for (uint256 i = 0; i < lens; ++i) {
+            if (addressTmp[i] != address(0))
+                addressTmp_[i] = addressTmp[i];
+        }
+    }
+
+    function allSelectUnlockAddressTest() public view returns (address[] memory addressTmp_){
+        uint256 lens = allContract.length;
+        address[] memory addressTmp = new address[](lens);
+        uint256 num;
+        for (uint256 i = 0; i < lens; ++i) {
+            address add_tmp = allContract[i];
+            //(,,uint end_Time) = getCakePoolRewardByCakePoolAddressAndUserAddress(add_tmp);
+            uint256 end_Time = tradingContract(add_tmp).endTime();
+            //if (block.timestamp >= end_Time) {
+            if (end_Time > 0) {
+                addressTmp[i] = add_tmp;
+                num ++;
+            }
+        }
+        addressTmp_ = new address[](num);
+        for (uint256 i = 0; i < lens; ++i) {
+            if (addressTmp[i] != address(0)) {
+                addressTmp_[num - 1] = addressTmp[i];
+                num--;
+            }
         }
     }
     //============================================
@@ -144,8 +225,9 @@ contract tradingContract {
     uint256 public startTime;
     uint256 public lockTime;
     uint256 public endTime;
-
+    uint256 public totalNumberPledges;
     ICakePool public  cakePool;
+    IERC20 public cakeToken;
 
     constructor(){
         factory = msg.sender;
@@ -180,34 +262,6 @@ contract tradingContract {
     //    }
 
     //=================== view ===================
-    function getCakePoolRewardByCakePoolAddrAndUserAddr(address _account) public view returns (uint256, uint256, uint256){
-        uint256 cakePoolBalanceOf = cakePool.balanceOf();
-        uint256 cakePoolTotalShares = cakePool.totalShares();
-        if (cakePoolTotalShares == 0) return (0, 0, 0);
-        (
-        uint256 shares,,
-        uint256 cakeAtLastUserAction,,,
-        uint256 lockEndTime,
-        uint256 userBoostedShare,
-        bool lock,
-        uint256 lockedAmount
-        ) = cakePool.userInfo(_account);
-        if (lock) {
-            return
-            (
-            lockedAmount,
-            (cakePoolBalanceOf * shares / cakePoolTotalShares) - userBoostedShare - lockedAmount,
-            lockEndTime
-            );
-        } else {
-            return
-            (
-            cakeAtLastUserAction,
-            (cakePoolBalanceOf * shares / cakePoolTotalShares) - cakeAtLastUserAction,
-            lockEndTime
-            );
-        }
-    }
 
     //    function getBalanceOfByAddress() public view returns (data[6] memory addressBalanceOf_) {
     //        for (uint256 i = 0; i < 6; ++i) {
@@ -231,12 +285,27 @@ contract tradingContract {
 
     function userPledge(bool _whitelist, uint256 _amount) external {
         require(locking || _whitelist, "TC:E0");
+        uint256 _lockTime = _whitelist ? 0 : endTime - (startTime + lockTime);
 
-        try cakePool.deposit(_amount, lockTime){
+        try cakePool.deposit(_amount, _lockTime){
+            totalNumberPledges += _amount;
             //emit CatchEvent("chenggong");
-        } catch Error(string memory shibai_){
+        } catch Error(string memory errorState){
             // call不成功的情况下
-            emit CatchEvent(shibai_);
+            emit CatchEvent(errorState);
+        }
+    }
+
+    function receiveAll() external returns (uint256 numberAwards_){
+        uint256 oldAmount = cakeToken.balanceOf(address(this));
+        try cakePool.unlock(address(this)){
+            cakePool.deposit(_amount, lockTime);
+            uint256 newAmount = cakeToken.balanceOf(address(this));
+            numberAwards_ = newAmount - totalNumberPledges - oldAmount;
+            // todo 发送给反向兑换合约
+        }catch Error(string memory errorState){
+            // call不成功的情况下
+            emit CatchEvent(errorState);
         }
     }
 

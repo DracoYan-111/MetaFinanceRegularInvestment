@@ -109,4 +109,11 @@ interface ICakePool {
      * @dev User Info
      */
     function userInfo(address _account) external view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, bool, uint256);
+
+    /**
+     * @dev Unlock user cake funds.
+     * @dev Only possible when contract not paused.
+     * @param _user: User address
+     */
+    function unlock(address _user) external;
 }
