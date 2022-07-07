@@ -10,9 +10,10 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
 
     bytes32 public constant INIT_CODE_PAIR_HASH = keccak256(abi.encodePacked(type(tradingContract).creationCode));
 
-    function initialize() public initializer {
+    function initialize(IMFIRegularInvestmentRouter _mfiRegularInvestmentRouter) public initializer {
         proportion = 100;
         __ReentrancyGuard_init();
+        mfiRegularInvestmentRouter = _mfiRegularInvestmentRouter;
     }
     //=================== view ===================
 
@@ -34,12 +35,23 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
     function getPoolPledgeRatio(uint256 _amount) external view returns (uint256[6] memory newAmount_){
         require(turnOn, "MFIRI:E2");
         uint256 _internalQuantity;
+
+        uint256 _totalNumber = mfiRegularInvestmentRouter.totalNumberPledges();
+        uint256 _total = _amount.add(_totalNumber);
+        uint256[6] memory _pledgeQuantity = mfiRegularInvestmentRouter.getPledgeQuantity();
+
         for (uint256 i = 0; i < 6; ++i) {
             if (i != 5) {
-                newAmount_[i] = _amount.mul(timeSpanDepositRatio[timeSpan[i]]).div(proportion);
+                newAmount_[i] =
+                _total.mul(timeSpanDepositRatio[timeSpan[i]]).div(proportion) > _pledgeQuantity[i] ?
+                _total.mul(timeSpanDepositRatio[timeSpan[i]]).div(proportion).sub(_pledgeQuantity[i]) : 0;
+                if (newAmount_[i] == 0)
+                    continue;
+                if (_amount < newAmount_[i])
+                    newAmount_[i] = _amount;
                 _internalQuantity += newAmount_[i];
             } else {
-                newAmount_[i] = _amount.sub(_internalQuantity);
+                newAmount_[i] = _amount.sub(_internalQuantity).sub(_totalNumber);
             }
         }
     }
@@ -60,6 +72,10 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
         }
     }
 
+    /**
+    * @dev Query all trading contracts
+    * @return allContract_ Array of all trading contracts
+    */
     function getAllContract() public view returns (address[] memory allContract_){
         allContract_ = new address[](allContract.length);
         for (uint256 i = 0; i < allContract.length; ++i) {
@@ -67,75 +83,75 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
         }
     }
 
+    //    /**
+    //    * @dev Get rewards in cake pool through user address
+    //    * @param _account User address
+    //    */
+    //    function getRewardByCakePoolAndUserAddress(address _account) public view returns (uint256, uint256, uint256){
+    //        uint256 cakePoolBalanceOf = cakePool.balanceOf();
+    //        uint256 cakePoolTotalShares = cakePool.totalShares();
+    //        if (cakePoolTotalShares == 0) return (0, 0, 0);
+    //        (
+    //        uint256 shares,,
+    //        uint256 cakeAtLastUserAction,,,
+    //        uint256 lockEndTime,
+    //        uint256 userBoostedShare,
+    //        bool lock,
+    //        uint256 lockedAmount
+    //        ) = cakePool.userInfo(_account);
+    //        if (lock) {
+    //            return
+    //            (lockedAmount,
+    //            (cakePoolBalanceOf * (shares) / (cakePoolTotalShares)) - (userBoostedShare) - (lockedAmount),
+    //            lockEndTime);
+    //        } else {
+    //            return
+    //            (cakeAtLastUserAction,
+    //            (cakePoolBalanceOf.mul(shares).div(cakePoolTotalShares)).sub(cakeAtLastUserAction),
+    //            lockEndTime);
+    //        }
+    //    }
 
-    // function test(uint256[] memory _amountList) public view returns (uint256[] memory amountList_){
-
-    //     for (uint256 i = 0; i < _amountList.length; ++i) {
-    //         if (_amountList[i] == 0) {
-    //             amountList_[i] = _amountList[_amountList.length - 1];
-    //             _amountList.pop();
-    //         }
-    //     }
-    // }
-
-    function getCakePoolRewardByCakePoolAddressAndUserAddress(address _account) public view returns (uint256, uint256, uint256){
+    /**
+    * @dev Get rewards in cake pool through user address
+    * @param _account User address
+    */
+    function getRewardByCakePoolAndUserAddressTest(address _account) public view returns (uint256, uint256){
         uint256 cakePoolBalanceOf = cakePool.balanceOf();
         uint256 cakePoolTotalShares = cakePool.totalShares();
-        if (cakePoolTotalShares == 0) return (0, 0, 0);
-        (
-        uint256 shares,,
+        (uint256 shares,,
         uint256 cakeAtLastUserAction,,,
         uint256 lockEndTime,
         uint256 userBoostedShare,
-        bool lock,
-        uint256 lockedAmount
-        ) = cakePool.userInfo(_account);
-        if (lock) {
-            return
-            (lockedAmount,
-            (cakePoolBalanceOf * shares / cakePoolTotalShares) - userBoostedShare - lockedAmount,
+        bool locked,
+        uint256 lockedAmount) = cakePool.userInfo(_account);
+
+        //        tokenAmount_ = locked ?
+        //        (cakePoolBalanceOf.mul(shares).div(cakePoolTotalShares)).sub(userBoostedShare).sub(lockedAmount) :
+        //        (cakePoolBalanceOf.mul(shares).div(cakePoolTotalShares)).sub(cakeAtLastUserAction);
+        if (locked) {
+            return (
+            (cakePoolBalanceOf.mul(shares).div(cakePoolTotalShares)).sub(userBoostedShare).sub(lockedAmount),
             lockEndTime);
         } else {
-            return
-            (cakeAtLastUserAction,
-            (cakePoolBalanceOf * shares / cakePoolTotalShares) - cakeAtLastUserAction,
+            return (
+            (cakePoolBalanceOf.mul(shares).div(cakePoolTotalShares)).sub(cakeAtLastUserAction),
             lockEndTime);
         }
     }
 
-    // //查询所有合约是否已解锁
+    /**
+    * @dev all select unlock address
+    * @return addressTmp_ Array of unlocked addresses
+    */
     function allSelectUnlockAddress() public view returns (address[] memory addressTmp_){
-        address[] memory addressList = getAllContract();
-        uint256 lens = addressList.length;
-        address[] memory addressTmp = new address[](lens);
-        for (uint256 i = 0; i < lens; ++i) {
-            address add_tmp = addressList[i];
-            (,, uint256 _endTime) = getCakePoolRewardByCakePoolAddressAndUserAddress(add_tmp);
-            if (block.timestamp >= _endTime)
-                addressTmp[i] = add_tmp;
-        }
-        uint256 amount;
-        for (uint256 i = 0; i < lens; ++i) {
-            if (addressTmp[i] != address(0))
-                amount++;
-        }
-        addressTmp_ = new address[](amount);
-        for (uint256 i = 0; i < lens; ++i) {
-            if (addressTmp[i] != address(0))
-                addressTmp_[i] = addressTmp[i];
-        }
-    }
-
-    function allSelectUnlockAddressTest() public view returns (address[] memory addressTmp_){
         uint256 lens = allContract.length;
         address[] memory addressTmp = new address[](lens);
         uint256 num;
         for (uint256 i = 0; i < lens; ++i) {
             address add_tmp = allContract[i];
-            //(,,uint end_Time) = getCakePoolRewardByCakePoolAddressAndUserAddress(add_tmp);
-            uint256 end_Time = tradingContract(add_tmp).endTime();
-            //if (block.timestamp >= end_Time) {
-            if (end_Time > 0) {
+            (, uint end_Time) = getRewardByCakePoolAndUserAddressTest(add_tmp);
+            if (block.timestamp >= end_Time) {
                 addressTmp[i] = add_tmp;
                 num ++;
             }
@@ -148,6 +164,36 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
             }
         }
     }
+
+    //    /**
+    //    * @dev
+    //    *
+    //    *
+    //    *
+    //    */
+    //    function allSelectUnlockAddressTest() public view returns (address[] memory addressTmp_){
+    //        uint256 lens = allContract.length;
+    //        address[] memory addressTmp = new address[](lens);
+    //        uint256 num;
+    //        for (uint256 i = 0; i < lens; ++i) {
+    //            address add_tmp = allContract[i];
+    //            //(,,uint end_Time) = getCakePoolRewardByCakePoolAddressAndUserAddress(add_tmp);
+    //            uint256 end_Time = tradingContract(add_tmp).endTime();
+    //            //if (block.timestamp >= end_Time) {
+    //            if (end_Time > 0) {
+    //                addressTmp[i] = add_tmp;
+    //                num ++;
+    //            }
+    //        }
+    //        addressTmp_ = new address[](num);
+    //        for (uint256 i = 0; i < lens; ++i) {
+    //            if (addressTmp[i] != address(0)) {
+    //                addressTmp_[num - 1] = addressTmp[i];
+    //                num--;
+    //            }
+    //        }
+    //    }
+
     //============================================
 
     /**
@@ -183,6 +229,8 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
         }
     }
 
+    mapping(address => uint256) public addressSubscript;
+
     /**
     * @dev Create tradingContract
     * @param _index Lock time array subscript
@@ -199,12 +247,18 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
             tradingContract_ := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
 
+        addressSubscript[tradingContract_] = _index;
         allTradingContract[_index].push(tradingContract_);
         timeSpanPid[_index]++;
         allContract.push(tradingContract_);
         //}
     }
 
+    /**
+    * @dev Initialize the transaction contract
+    * @param _index Lock time index
+    * @param _tradContractAddress The address of the transaction contract that needs to be initialized
+    */
     function initializeTradingContract(uint256[] calldata _index, tradingContract[] calldata _tradContractAddress) public {
         require(_index.length == _tradContractAddress.length, "MFIRI:E2");
         for (uint256 i = 0; i < _index.length; ++i) {
@@ -212,13 +266,21 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
         }
     }
 
-    function setLockTradingContract(tradingContract _tradContractAddress) public {
-        _tradContractAddress.setLock();
+    /**
+    * @dev Lock or unlock a transaction contract
+    * @param _tradContractAddress Array of transaction contract addresses
+    */
+    function setLockTradingContract(tradingContract[] memory _tradContractAddress) public {
+        for (uint256 i = 0; i < _tradContractAddress.length; ++i) {
+            _tradContractAddress[i].setLock();
+        }
     }
 }
 
 
 contract tradingContract {
+    using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     bool public locking;
     address public factory;
@@ -226,7 +288,7 @@ contract tradingContract {
     uint256 public lockTime;
     uint256 public endTime;
     uint256 public totalNumberPledges;
-    ICakePool public  cakePool;
+    ICakePool public cakePool;
     IERC20 public cakeToken;
 
     constructor(){
@@ -256,28 +318,6 @@ contract tradingContract {
         uint256 lockEndTime;
     }
 
-    //    constructor(){
-    //        CakePool = ICakePool(0x45c54210128a065de780C4B0Df3d16664f7f859e);
-    //
-    //    }
-
-    //=================== view ===================
-
-    //    function getBalanceOfByAddress() public view returns (data[6] memory addressBalanceOf_) {
-    //        for (uint256 i = 0; i < 6; ++i) {
-    //            uint256 value = 0;
-    //            uint256 endTime = 0;
-    //            address[] memory _addrs = spanCorrespondingContract[lengths[i]];
-    //            for (uint256 j = 0; j < spanCorrespondingContract.length; ++j) {
-    //                (uint256 lockedAmount, uint256 rewardAmount, uint256 lockEndTime) = getCakePoolRewardByCakePoolAddrAndUserAddr(spanCorrespondingContract[j]);
-    //                value += (lockedAmount + rewardAmount);
-    //                endTime = lockEndTime;
-    //            }
-    //            addressBalanceOf_[i].rewardAndLockAmount += value;
-    //            addressBalanceOf_[i].lockEndTime = endTime;
-    //        }
-    //    }
-
     event CatchEvent(string);
 
 
@@ -296,13 +336,16 @@ contract tradingContract {
         }
     }
 
-    function receiveAll() external returns (uint256 numberAwards_){
+    function receiveAll() external returns (uint256 numberAwards_, uint256 numberPledges_){
+        require(block.timestamp >= endTime, "TC:E1");
         uint256 oldAmount = cakeToken.balanceOf(address(this));
         try cakePool.unlock(address(this)){
-            cakePool.deposit(_amount, lockTime);
+            cakePool.withdrawAll();
             uint256 newAmount = cakeToken.balanceOf(address(this));
             numberAwards_ = newAmount - totalNumberPledges - oldAmount;
+            numberPledges_ = totalNumberPledges;
             // todo 发送给反向兑换合约
+            cakeToken.safeTransfer(msg.sender, numberAwards_);
         }catch Error(string memory errorState){
             // call不成功的情况下
             emit CatchEvent(errorState);
@@ -315,4 +358,3 @@ contract tradingContract {
     }
 
 }
-

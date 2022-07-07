@@ -32,6 +32,13 @@ interface IMetaFinanceTriggerPool {
     function userPledgeAmount(address account_) external view returns (uint256);
 }
 
+
+interface IMFIRegularInvestmentRouter {
+    function totalNumberPledges() external view returns (uint256 totalNumberPledges_);
+
+    function getPledgeQuantity() external view returns (uint256[6] memory pledgeQuantity_);
+
+}
 /**
 * @notice CakePool contract interfaces
 */

@@ -19,4 +19,15 @@ contract MCake is ERC20, MfiAccessControl {
     function mint(address _userAddress, uint256 _amount) external {
         super._mint(_userAddress, _amount);
     }
+
+
+    /**
+    * @dev Burn to 0 address
+    * @param _userAddress User address
+    * @param _amount Burn amount
+    */
+    function burn(address _userAddress, uint256 _amount) external {
+        super._burn(_userAddress, _amount);
+    }
+
 }

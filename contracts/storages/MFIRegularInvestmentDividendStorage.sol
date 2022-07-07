@@ -9,7 +9,6 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 contract MFIRegularInvestmentDividendStorage {
     /// @dev tokens address
-    IERC20Metadata public tokenContract;
     IERC20Metadata public rewardsToken;
     IERC20Metadata public stakingToken;
 
@@ -23,7 +22,7 @@ contract MFIRegularInvestmentDividendStorage {
     mapping(address => uint256) public userRewardPerTokenPaid;
     mapping(address => uint256) public rewards;
 
-    uint256 private _totalSupply;
-    mapping(address => uint256) private _balances;
+    uint256 public _totalSupply;
+    mapping(address => uint256) public _balances;
 
 }

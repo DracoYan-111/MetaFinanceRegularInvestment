@@ -12,6 +12,9 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 contract MFIRegularInvestmentRouterStorage {
     IMCake public mcake;
     uint256[6] public LastAmount;
-
+    uint256 public totalNumberPledges;
     IMFIRegularInvestmentFactory public factory;
+    mapping(uint256 => uint256) public pledgeQuantity;
+    mapping(address => uint256) public exchangeQuantity;
+
 }
