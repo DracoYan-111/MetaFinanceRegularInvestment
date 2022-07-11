@@ -7,14 +7,9 @@ import "./utils/MfiAccessControl.sol";
 contract MFIRegularInvestmentRouter is MfiAccessControl, MFIRegularInvestmentRouterStorage {
     using SafeMath for uint256;
 
-    function initialize(IMFIRegularInvestmentFactory _factoryAddress, IMCake _mcake) public {
+    function initialize(IMFIRegularInvestmentFactory _mfiRegularInvestmentFactory, IMCake _mcake) public {
         mcake = _mcake;
-        factory = _factoryAddress;
-        uint256[6] memory lockSpanData = factory.getLockSpanData();
-        for (uint256 i = 0; i < 6; ++i) {
-            LastAmount[i] = lockSpanData[i];
-        }
-
+        factory = _mfiRegularInvestmentFactory;
     }
 
     /**
@@ -22,12 +17,11 @@ contract MFIRegularInvestmentRouter is MfiAccessControl, MFIRegularInvestmentRou
     * @param pledgeQuantity_ Pledge quantity
     */
     function getPledgeQuantity() external view returns (uint256[6] memory pledgeQuantity_){
-        for (uint256 i = 0; i < 6; ++i) {
+        for (uint256 i = 0; i < 6; ++i)
             pledgeQuantity_[i] = pledgeQuantity[i];
-        }
     }
 
-    error PledgeFailed(address userAddress, uint256 amount, string errorState);
+    error PledgeFailed(string errorState);
 
     /**
     * @dev User pledges
@@ -36,39 +30,33 @@ contract MFIRegularInvestmentRouter is MfiAccessControl, MFIRegularInvestmentRou
     function userPledges(uint256 _amount) external {
         address[6] memory latestAddress = factory.getLatestAddress();
         uint256[6] memory pledgeRatio = factory.getPoolPledgeRatio(_amount);
+        uint256[6] memory lockSpan = factory.getLockSpan();
         for (uint256 i = 0; i < 6; ++i) {
-            pledgeQuantity[i] += pledgeRatio[i];
+            if (block.timestamp > ITradingContract(latestAddress[i]).endTime()) {
+                ITradingContract(latestAddress[i]).useContract(lockSpan[i], timeSpan[i]);
+            }
             try ITradingContract(latestAddress[i]).userPledge(false, pledgeRatio[i]) {
+                pledgeQuantity[i] += pledgeRatio[i];
             } catch Error(string memory errorState){
-                revert PledgeFailed(_msgSender(), _amount, errorState);
+                revert PledgeFailed(errorState);
             }
         }
         totalNumberPledges += _amount;
-        mcake.mint(_msgSender(), _amount);
+        mcake.mint(msg.sender, _amount);
     }
 
     /**
-    * @dev Get unlocked trading contract rewards
+    * @dev Get rewarded
     */
-    function getRewarded(/*ITradingContract[] memory _tradingContractArray*/) external {
-        address[] memory _tradingContractArray = factory.allSelectUnlockAddress();
-        for (uint256 i = 0; i < _tradingContractArray.length; ++i) {
-            try ITradingContract(_tradingContractArray[i]).receiveAll() returns (uint256 , uint256 numberPledges_) {
-                pledgeQuantity[factory.addressSubscript(_tradingContractArray[i])] -= numberPledges_;
-            } catch Error(string memory errorState){
-                revert PledgeFailed(_msgSender(), 0, errorState);
+    function getRewarded() external {
+        address[] memory allSelectUnlock = factory.allSelectUnlockAddress();
+        for (uint256 i = 0; i < allSelectUnlock.length; ++i) {
+            try  ITradingContract(allSelectUnlock[i]).receiveAll() returns (uint256 numberAwards_, uint256 numberPledges_){
+                totalNumberPledges -= numberPledges_;
+                pledgeQuantity[factory.addressSubscript(allSelectUnlock[i])] -= numberPledges_;
+            }catch Error(string memory errorState){
+                revert PledgeFailed(errorState);
             }
         }
     }
-
-    /**
-    * @dev User reverse conversion
-    * @param _amount Reverse conversion amount
-    */
-    function reverseConversion(uint256 _amount) external {
-        mcake.burn(_msgSender(), _amount);
-        exchangeQuantity[_msgSender()] = _amount;
-    }
-
-
 }

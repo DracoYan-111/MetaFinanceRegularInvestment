@@ -47,7 +47,7 @@ contract MFIRegularInvestmentDividend is MfiAccessControl, ReentrancyGuardUpgrad
     * @return The number of rewards the user has earned
     */
     function earned(address account) public view returns (uint256) {
-        return _balances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(rewards[account]);
+        return _balances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])) .div(1e18).add(rewards[account]);
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */

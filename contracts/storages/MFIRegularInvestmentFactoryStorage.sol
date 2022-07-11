@@ -10,20 +10,21 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 contract MFIRegularInvestmentFactoryStorage {
+
     bool public turnOn;
-
-    uint256 public contractVersion;
     address[] public allContract;
+    uint256 public contractVersion;
+    uint256[6] public lockSpan;
 
-    mapping(uint256 => uint256) public lockSpan;
     mapping(uint256 => uint256) public timeSpanPid;
-    mapping(uint256 => uint256) public timeSpanDepositRatio;
-    mapping(uint256 => address[]) public allTradingContract;
+    mapping(address => uint256) public addressSubscript;
+    uint256[6] public  timeSpanDepositRatio;
+    mapping(uint256 => address[]) public indexTradingContract;
 
     IMFIRegularInvestmentRouter public mfiRegularInvestmentRouter;
 
-    /// @notice main chain
-    ICakePool public constant cakePool = ICakePool(0xd9145CCE52D386f254917e481eB44e9943F39138);
+    ICakePool public constant cakePool = ICakePool(0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8);
+
     IMetaFinanceTriggerPool public constant metaFinanceTriggerPool = IMetaFinanceTriggerPool(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
     /// @notice test chain
