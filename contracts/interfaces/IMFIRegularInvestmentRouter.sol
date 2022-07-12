@@ -2,6 +2,13 @@
 pragma solidity 0.8.9;
 
 /**
+* @notice MFIRegularInvestmentDividend contract interfaces
+*/
+interface IMFIRegularInvestmentDividend {
+    function notifyRewardAmount(uint256 reward, uint256 timestamp) external;
+}
+
+/**
 * @notice MFIRegularInvestmentFactory contract interfaces
 */
 interface IMFIRegularInvestmentFactory {

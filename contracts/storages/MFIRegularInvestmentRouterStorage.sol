@@ -10,8 +10,10 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 contract MFIRegularInvestmentRouterStorage {
-    uint256 public totalNumberPledges;
 
+    uint256 public totalNumberPledges;
+    uint256[] public shareRatio;
+    address[] public paymentAddress;
     mapping(uint256 => uint256)  public pledgeQuantity;
 
     IMCake public mcake;

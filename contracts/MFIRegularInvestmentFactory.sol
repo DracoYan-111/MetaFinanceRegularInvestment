@@ -155,8 +155,6 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
             }
         }
     }
-    //============================================
-
 
     function setMFIRegularInvestmentRouter(IMFIRegularInvestmentRouter _mfiRegularInvestmentRouter) public {
         mfiRegularInvestmentRouter = _mfiRegularInvestmentRouter;
@@ -192,27 +190,6 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
             createPair(_index);
     }
 
-    //    /**
-    //    * @dev Create tradingContract
-    //    * @param _index Lock time array subscript
-    //    */
-    //    function createPair(uint256 _index) public {
-    //        bytes memory bytecode = type(tradingContract).creationCode;
-    //        uint256 pid = timeSpanPid[_index];
-    //        bytes32 salt = keccak256(abi.encodePacked(contractVersion, pid));
-    //        address tradingContracts;
-    //
-    //        assembly {
-    //            tradingContracts := create2(0, add(bytecode, 32), mload(bytecode), salt)
-    //        }
-    //
-    //        timeSpanPid[_index]++;
-    //        allContract.push(tradingContracts);
-    //        addressSubscript[tradingContracts] = _index;
-    //        indexTradingContract[_index].push(tradingContracts);
-    //    }
-
-
     /**
     * @dev Create tradingContract
     * @param _index Lock time array subscript
@@ -220,7 +197,6 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
     function createPair(uint256 _index/*, uint256 _amount*/) public {
         bytes memory bytecode = type(tradingContract).creationCode;
         uint256 time = timeSpan[_index];
-        //for (uint256 i = 0; i < _amount; ++i) {
         uint256 _pid = timeSpanPid[_index];
         bytes32 salt = keccak256(abi.encodePacked(contractVersion, _pid, time));
         address tradingContracts;
@@ -233,7 +209,6 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
         indexTradingContract[_index].push(tradingContracts);
         timeSpanPid[_index]++;
         allContract.push(tradingContracts);
-        //}
     }
 
     tradingContract[] public  expiredAddress;
@@ -252,9 +227,9 @@ contract MFIRegularInvestmentFactory is MfiAccessControl, ReentrancyGuardUpgrade
     }
 
     /**
-        * @dev Lock or unlock a transaction contract
-        * @param _tradContractAddress Array of transaction contract addresses
-        */
+    * @dev Lock or unlock a transaction contract
+    * @param _tradContractAddress Array of transaction contract addresses
+    */
     function setLockTradingContract(tradingContract[] memory _tradContractAddress) public {
         for (uint256 i = 0; i < _tradContractAddress.length; ++i)
             _tradContractAddress[i].setLock();
@@ -274,6 +249,10 @@ contract tradingContract {
     ICakePool public cakePool;
     IERC20Metadata public cakeToken;
 
+    event ReceiveAllEvent(uint256 amount);
+    event UserPledgeEvent(uint256 amount);
+    event UseContractEvent(uint256 startTime, uint256 endTime);
+
     error PledgeFailed(string errorState);
 
     function initialize(ICakePool _cakePool) external {
@@ -281,39 +260,48 @@ contract tradingContract {
         cakePool = _cakePool;
     }
 
-    event UseContractEvent(uint256 startTime, uint256 endTime);
-
+    /**
+    * @dev start using the contract
+    * @param _lockTime Stop staking time
+    * @param _pledgeTime Lock time
+    */
     function useContract(uint256 _lockTime, uint256 _pledgeTime) public {
         startTime = block.timestamp;
-        lockTime = block.timestamp.add(_lockTime);
+        lockTime = _lockTime;
         endTime = startTime.add(_lockTime).add(_pledgeTime);
 
         emit UseContractEvent(startTime, endTime);
     }
 
+    /**
+    * @dev lock the contract
+    */
     function setLock() external {
         locking = !locking;
     }
 
-    //============================================
-
-    event UserPledgeEvent(uint256 amount);
-
+    /**
+    * @dev User pledge
+    * @param _whitelist Is it a whitelist
+    * @param _amount Pledge quantity
+    */
     function userPledge(bool _whitelist, uint256 _amount) external {
         require(locking || _whitelist, "TC:E0");
         uint256 _lockTime = _whitelist ? 0 : endTime.sub(startTime.add(lockTime));
 
         try cakePool.deposit(_amount, _lockTime){
             totalNumberPledges = totalNumberPledges.add(_amount);
-
             emit UserPledgeEvent(_amount);
         } catch Error(string memory errorState){
             revert PledgeFailed(errorState);
         }
     }
 
-    event ReceiveAllEvent(uint256 amount);
-
+    /**
+    * @dev Receive principal and rewards
+    * @return numberAwards_ Rewards generated this time
+    * @return numberPledges_ The principal received this time
+    */
     function receiveAll() external returns (uint256 numberAwards_, uint256 numberPledges_){
         require(block.timestamp >= endTime, "TC:E1");
         uint256 oldAmount = cakeToken.balanceOf(address(this));
@@ -330,5 +318,4 @@ contract tradingContract {
             revert PledgeFailed(errorState);
         }
     }
-
 }
